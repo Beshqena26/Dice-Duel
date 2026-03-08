@@ -554,22 +554,15 @@ function DealerCard({ phase, result, dealerDice, rolling }) {
     : "DEALER";
 
   return (
-    <div className="card" style={{ padding: "var(--pad)", textAlign: "center", height: "var(--card-h)", display: "flex", flexDirection: "column", overflow: "hidden", borderTop: borderColor, animation: glowAnimation, background: bgGradient }}>
+    <div className="card" style={{ padding: "var(--pad)", textAlign: "center", height: "var(--card-h)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", overflow: "hidden", borderTop: borderColor, animation: glowAnimation, background: bgGradient, transition: "border-top 0.3s ease, background 0.3s ease" }}>
       <div className="label" style={{ color: labelColor, marginBottom: 6, flexShrink: 0 }}>{labelText}</div>
-      <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: "var(--gap)" }}>
-        {dealerDice[0] !== null ? (
-          <>
-            <AnimatedDie finalValue={dealerDice[0]} color="red" delay={0} rolling={rolling} />
-            <AnimatedDie finalValue={dealerDice[1]} color="red" delay={100} rolling={rolling} />
-          </>
-        ) : (
-          <>
-            <div className="die-placeholder" style={{ borderColor: "var(--red)" }} />
-            <div className="die-placeholder" style={{ borderColor: "var(--red)" }} />
-          </>
-        )}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "var(--gap)", padding: "4px 0" }}>
+        <AnimatedDie finalValue={dealerDice[0]} color="red" delay={0} rolling={rolling} />
+        <AnimatedDie finalValue={dealerDice[1]} color="red" delay={100} rolling={rolling} />
+      </div>
+      <div style={{ height: "var(--fs-dice-num)", marginTop: 4, display: "flex", alignItems: "center", justifyContent: "center" }}>
         {isResult && (
-          <span className="mono" style={{ fontSize: "var(--fs-dice-num)", fontWeight: 800, color: "var(--tx2)", animation: "slide-up .2s ease", marginLeft: 6 }}>
+          <span className="mono" style={{ fontSize: "var(--fs-dice-num)", fontWeight: 800, color: "var(--tx2)", animation: "slide-up .2s ease" }}>
             {dealerTotal}
           </span>
         )}
@@ -608,11 +601,11 @@ function PlayerCard({ phase, result, playerDice, diceCount, rolling, hasInsuranc
   const labelColor = isResult && result === "win" ? "var(--green)" : "var(--tx3)";
 
   return (
-    <div className="card" style={{ padding: "var(--pad)", textAlign: "center", height: "var(--card-h)", display: "flex", flexDirection: "column", overflow: "hidden", borderTop: borderColor, animation: glowAnimation, background: bgGradient }}>
+    <div className="card" style={{ padding: "var(--pad)", textAlign: "center", height: "var(--card-h)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", overflow: "hidden", borderTop: borderColor, animation: glowAnimation, background: bgGradient, transition: "border-top 0.3s ease, background 0.3s ease" }}>
       <div className="label" style={{ color: labelColor, marginBottom: 6, flexShrink: 0 }}>
         {isResult && result === "win" ? "YOU WIN!" : "YOU"}
       </div>
-      <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6, padding: "4px 0" }}>
         {[0, 1, 2].map((i) => {
           if (i >= diceCount) return null;
           const val = playerDice[i];
@@ -620,8 +613,10 @@ function PlayerCard({ phase, result, playerDice, diceCount, rolling, hasInsuranc
             ? <AnimatedDie key={i} finalValue={val} color="white" delay={i * 70} rolling={rolling} />
             : <div key={i} className="die-placeholder" style={{ borderColor: "rgba(255,255,255,.12)" }} />;
         })}
+      </div>
+      <div style={{ minHeight: 24, marginTop: 4, display: "flex", alignItems: "center", justifyContent: "center" }}>
         {isResult && (
-          <div style={{ marginLeft: 8, animation: "pop-in .35s cubic-bezier(.34,1.56,.64,1)", display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+          <div style={{ animation: "pop-in .35s cubic-bezier(.34,1.56,.64,1)", display: "flex", alignItems: "center", justifyContent: "center", gap: 6, flexWrap: "wrap" }}>
             <span className="mono" style={{ fontSize: "var(--fs-dice-num)", fontWeight: 800, color: "var(--tx2)" }}>{playerTotal}</span>
             <span style={{ fontSize: "var(--fs-body)", fontWeight: 900, letterSpacing: 1, color: resultColor, animation: result === "win" ? "win-pulse 1.5s ease infinite" : "none" }}>
               {result === "win" ? "WIN!" : result === "tie" ? "TIE" : "LOSE"}
