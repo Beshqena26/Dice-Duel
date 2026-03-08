@@ -1,4 +1,4 @@
-const { useState, useEffect, useCallback, useMemo } = React;
+const { useState, useEffect, useCallback, useMemo, useRef } = React;
 
 /* ── Constants ── */
 const MULTIPLIERS = { 1: 10.48, 2: 2.19, 3: 1.25 };
@@ -21,6 +21,159 @@ const DICE_OPTIONS = [
   { count: 2, label: "Medium", multiplier: "2.19x", color: "var(--amber)" },
   { count: 3, label: "Low Risk", multiplier: "1.25x", color: "var(--green)" },
 ];
+
+/* ── Sound Effects (Web Audio API) ── */
+const SFX = (() => {
+  let ctx, masterGain;
+  let _volume = parseFloat(localStorage.getItem("sfx_vol") ?? "0.7");
+  let _muted = localStorage.getItem("sfx_muted") === "true";
+
+  function getCtx() {
+    if (!ctx) {
+      ctx = new (window.AudioContext || window.webkitAudioContext)();
+      masterGain = ctx.createGain();
+      masterGain.gain.value = _muted ? 0 : _volume;
+      masterGain.connect(ctx.destination);
+    }
+    if (ctx.state === "suspended") ctx.resume();
+    return ctx;
+  }
+
+  function getDest() {
+    getCtx();
+    return masterGain;
+  }
+
+  function playTone(freq, duration, type = "sine", vol = 0.15) {
+    const c = getCtx();
+    const osc = c.createOscillator();
+    const gain = c.createGain();
+    osc.type = type;
+    osc.frequency.value = freq;
+    gain.gain.setValueAtTime(vol, c.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, c.currentTime + duration);
+    osc.connect(gain).connect(getDest());
+    osc.start();
+    osc.stop(c.currentTime + duration);
+  }
+
+  return {
+    click() {
+      playTone(800, 0.06, "square", 0.08);
+    },
+    roll() {
+      const c = getCtx();
+      const t = c.currentTime;
+      const dur = 1.2;
+
+      // Layer 1: Shaking rattle — rapid dice-in-hand sound
+      const rattleLen = c.sampleRate * dur;
+      const rattleBuf = c.createBuffer(1, rattleLen, c.sampleRate);
+      const rattleData = rattleBuf.getChannelData(0);
+      for (let i = 0; i < rattleLen; i++) {
+        // Pulse bursts at ~30Hz to simulate dice clacking in hand
+        const burst = Math.sin(i / (c.sampleRate / 30)) > 0.3 ? 1 : 0.1;
+        rattleData[i] = (Math.random() * 2 - 1) * burst;
+      }
+      const rattleSrc = c.createBufferSource();
+      rattleSrc.buffer = rattleBuf;
+      const rattleBand = c.createBiquadFilter();
+      rattleBand.type = "bandpass";
+      rattleBand.frequency.value = 3500;
+      rattleBand.Q.value = 1.8;
+      const rattleGain = c.createGain();
+      rattleGain.gain.setValueAtTime(0.25, t);
+      rattleGain.gain.setValueAtTime(0.3, t + 0.2);
+      rattleGain.gain.exponentialRampToValueAtTime(0.05, t + dur * 0.7);
+      rattleGain.gain.exponentialRampToValueAtTime(0.001, t + dur);
+      rattleSrc.connect(rattleBand).connect(rattleGain).connect(getDest());
+      rattleSrc.start(t);
+      rattleSrc.stop(t + dur);
+
+      // Layer 2: Hard surface bounces — dice hitting table
+      const bounces = [0.55, 0.68, 0.78, 0.86, 0.92, 0.96, 0.99];
+      bounces.forEach((offset, idx) => {
+        const vol = 0.4 * Math.pow(0.7, idx);
+        const freq = 1800 + Math.random() * 2500;
+
+        // Sharp click (plastic on hard surface)
+        const clickBuf = c.createBuffer(1, Math.floor(c.sampleRate * 0.015), c.sampleRate);
+        const clickData = clickBuf.getChannelData(0);
+        for (let i = 0; i < clickData.length; i++) {
+          clickData[i] = (Math.random() * 2 - 1) * Math.exp(-i / (c.sampleRate * 0.003));
+        }
+        const clickSrc = c.createBufferSource();
+        clickSrc.buffer = clickBuf;
+        const clickHP = c.createBiquadFilter();
+        clickHP.type = "highpass";
+        clickHP.frequency.value = freq;
+        const clickGain = c.createGain();
+        clickGain.gain.value = vol;
+        clickSrc.connect(clickHP).connect(clickGain).connect(getDest());
+        clickSrc.start(t + offset);
+        clickSrc.stop(t + offset + 0.015);
+
+        // Thud body (low resonance from impact)
+        const osc = c.createOscillator();
+        const thudGain = c.createGain();
+        osc.type = "sine";
+        osc.frequency.setValueAtTime(200 + Math.random() * 100, t + offset);
+        osc.frequency.exponentialRampToValueAtTime(60, t + offset + 0.06);
+        thudGain.gain.setValueAtTime(vol * 0.6, t + offset);
+        thudGain.gain.exponentialRampToValueAtTime(0.001, t + offset + 0.07);
+        osc.connect(thudGain).connect(getDest());
+        osc.start(t + offset);
+        osc.stop(t + offset + 0.07);
+      });
+
+      // Layer 3: Final settle — dice wobble and stop
+      const wobbles = [1.02, 1.06, 1.09, 1.11];
+      wobbles.forEach((offset, idx) => {
+        const vol = 0.15 * Math.pow(0.5, idx);
+        const wobBuf = c.createBuffer(1, Math.floor(c.sampleRate * 0.008), c.sampleRate);
+        const wobData = wobBuf.getChannelData(0);
+        for (let i = 0; i < wobData.length; i++) {
+          wobData[i] = (Math.random() * 2 - 1) * Math.exp(-i / (c.sampleRate * 0.002));
+        }
+        const wobSrc = c.createBufferSource();
+        wobSrc.buffer = wobBuf;
+        const wobGain = c.createGain();
+        wobGain.gain.value = vol;
+        const wobHP = c.createBiquadFilter();
+        wobHP.type = "highpass";
+        wobHP.frequency.value = 4000;
+        wobSrc.connect(wobHP).connect(wobGain).connect(getDest());
+        wobSrc.start(t + offset);
+        wobSrc.stop(t + offset + 0.008);
+      });
+    },
+    win() {
+      playTone(523, 0.15, "sine", 0.12);
+      setTimeout(() => playTone(659, 0.15, "sine", 0.12), 100);
+      setTimeout(() => playTone(784, 0.25, "sine", 0.15), 200);
+    },
+    lose() {
+      playTone(350, 0.2, "sawtooth", 0.08);
+      setTimeout(() => playTone(280, 0.35, "sawtooth", 0.06), 150);
+    },
+    tie() {
+      playTone(440, 0.15, "triangle", 0.1);
+      setTimeout(() => playTone(440, 0.2, "triangle", 0.08), 160);
+    },
+    setVolume(v) {
+      _volume = v;
+      localStorage.setItem("sfx_vol", v);
+      if (masterGain && !_muted) masterGain.gain.value = v;
+    },
+    getVolume() { return _volume; },
+    setMuted(m) {
+      _muted = m;
+      localStorage.setItem("sfx_muted", m);
+      if (masterGain) masterGain.gain.value = m ? 0 : _volume;
+    },
+    isMuted() { return _muted; },
+  };
+})();
 
 /* ── Helpers ── */
 function rollDie() {
@@ -170,6 +323,111 @@ function InsufficientBalanceModal({ balance, totalBet, onClose }) {
   );
 }
 
+/* ── Sound Control Component ── */
+function SoundControl() {
+  const [muted, setMuted] = useState(SFX.isMuted());
+  const [volume, setVolume] = useState(SFX.getVolume());
+  const [open, setOpen] = useState(false);
+  const wrapperRef = useRef(null);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    if (!open) return;
+    const handleClickOutside = (e) => {
+      if (wrapperRef.current && !wrapperRef.current.contains(e.target)) {
+        setOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    document.addEventListener("touchstart", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("touchstart", handleClickOutside);
+    };
+  }, [open]);
+
+  const toggleMute = () => {
+    const next = !muted;
+    setMuted(next);
+    SFX.setMuted(next);
+    if (!next) SFX.click();
+  };
+
+  const handleVolume = (e) => {
+    const v = parseFloat(e.target.value);
+    setVolume(v);
+    SFX.setVolume(v);
+    if (muted) { setMuted(false); SFX.setMuted(false); }
+  };
+
+  const icon = muted ? "🔇" : volume > 0.5 ? "🔊" : volume > 0 ? "🔉" : "🔈";
+
+  return (
+    <div ref={wrapperRef} style={{ position: "relative", display: "flex", alignItems: "center" }}>
+      <button
+        className="btn"
+        onClick={() => setOpen(!open)}
+        style={{
+          width: 32, height: 32, borderRadius: 8, background: "var(--elev)",
+          border: "1px solid var(--brd)", color: "var(--tx2)", fontSize: 16,
+          display: "flex", alignItems: "center", justifyContent: "center",
+          opacity: muted ? 0.5 : 1,
+        }}
+        aria-label="Sound settings"
+      >
+        {icon}
+      </button>
+      {open && (
+        <div
+          style={{
+            position: "absolute", top: "110%", right: 0, zIndex: 50,
+            background: "var(--card)", border: "1px solid var(--brd2)",
+            borderRadius: 12, padding: "12px 14px", minWidth: 180,
+            boxShadow: "0 12px 40px rgba(0,0,0,.5)",
+            animation: "slide-up .15s ease",
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+            <span style={{ fontSize: "var(--fs-small)", fontWeight: 700, color: "var(--tx3)", letterSpacing: 1, textTransform: "uppercase" }}>Sound</span>
+            <button
+              className="btn"
+              onClick={toggleMute}
+              style={{
+                width: 28, height: 28, borderRadius: 6, fontSize: 14,
+                background: muted ? "rgba(255,71,87,.15)" : "rgba(46,213,115,.12)",
+                border: "1px solid " + (muted ? "rgba(255,71,87,.25)" : "rgba(46,213,115,.2)"),
+                color: muted ? "var(--red)" : "var(--green)",
+                display: "flex", alignItems: "center", justifyContent: "center",
+              }}
+            >
+              {muted ? "🔇" : "🔊"}
+            </button>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <span style={{ fontSize: 12, color: "var(--tx3)" }}>🔈</span>
+            <input
+              type="range"
+              min="0" max="1" step="0.05"
+              value={muted ? 0 : volume}
+              onChange={handleVolume}
+              style={{
+                flex: 1, height: 4, appearance: "none", WebkitAppearance: "none",
+                background: `linear-gradient(to right, var(--green) ${(muted ? 0 : volume) * 100}%, var(--elev) ${(muted ? 0 : volume) * 100}%)`,
+                borderRadius: 2, outline: "none", cursor: "pointer",
+                accentColor: "var(--green)",
+              }}
+            />
+            <span style={{ fontSize: 12, color: "var(--tx3)" }}>🔊</span>
+          </div>
+          <div className="mono" style={{ textAlign: "center", fontSize: "var(--fs-small)", color: "var(--tx3)", marginTop: 6 }}>
+            {muted ? "Muted" : Math.round(volume * 100) + "%"}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 /* ── Header Component ── */
 function Header({ balance, onShowInfo }) {
   return (
@@ -188,12 +446,15 @@ function Header({ balance, onShowInfo }) {
           ?
         </button>
       </div>
-      <div className="card" style={{ padding: "6px var(--pad)", display: "flex", alignItems: "center", gap: "var(--gap)", borderRadius: 12 }}>
-        <div style={{ width: 24, height: 24, borderRadius: 7, background: "linear-gradient(135deg,var(--blue),#2563eb)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "var(--fs-small)", fontWeight: 900, flexShrink: 0 }}>$</div>
-        <div>
-          <div style={{ fontSize: "var(--fs-small)", color: "var(--tx3)", fontWeight: 600, lineHeight: 1 }}>Balance</div>
-          <div className="mono" style={{ fontSize: "var(--fs-balance)", fontWeight: 800, lineHeight: 1.3, whiteSpace: "nowrap" }}>
-            ${balance.toLocaleString("en-US", { minimumFractionDigits: 2 })}
+      <div style={{ display: "flex", alignItems: "center", gap: "var(--gap)" }}>
+        <SoundControl />
+        <div className="card" style={{ padding: "6px var(--pad)", display: "flex", alignItems: "center", gap: "var(--gap)", borderRadius: 12 }}>
+          <div style={{ width: 24, height: 24, borderRadius: 7, background: "linear-gradient(135deg,var(--blue),#2563eb)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "var(--fs-small)", fontWeight: 900, flexShrink: 0 }}>$</div>
+          <div>
+            <div style={{ fontSize: "var(--fs-small)", color: "var(--tx3)", fontWeight: 600, lineHeight: 1 }}>Balance</div>
+            <div className="mono" style={{ fontSize: "var(--fs-balance)", fontWeight: 800, lineHeight: 1.3, whiteSpace: "nowrap" }}>
+              ${balance.toLocaleString("en-US", { minimumFractionDigits: 2 })}
+            </div>
           </div>
         </div>
       </div>
@@ -339,7 +600,7 @@ function DiceCountSelector({ diceCount, onSelect, disabled }) {
             <button
               key={option.count}
               className="btn dice-select-btn"
-              onClick={() => onSelect(option.count)}
+              onClick={() => { SFX.click(); onSelect(option.count); }}
               disabled={disabled}
               style={{
                 padding: "var(--gap) 4px", borderRadius: 10, color: "var(--tx)", textAlign: "center",
@@ -391,7 +652,7 @@ function BetControls({ bet, setBet, totalBet, insurance, setInsurance, bonusBet,
 
       {/* Bet input row */}
       <div style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: "var(--gap)" }}>
-        <button className="btn control-btn" onClick={() => setBet((p) => decreaseBet(p))}>−</button>
+        <button className="btn control-btn" onClick={() => { SFX.click(); setBet((p) => decreaseBet(p)); }}>−</button>
         <input
           className="mono"
           type="number"
@@ -406,16 +667,16 @@ function BetControls({ bet, setBet, totalBet, insurance, setInsurance, bonusBet,
           onBlur={() => { if (bet < 1) setBet(1); }}
           style={{ flex: 1, height: "var(--btn-h)", borderRadius: 8, background: "var(--bg)", border: "1px solid var(--brd)", color: "var(--tx)", textAlign: "center", fontSize: "var(--fs-body)", fontWeight: 800, outline: "none", WebkitAppearance: "none", MozAppearance: "textfield", padding: "0 8px" }}
         />
-        <button className="btn control-btn" onClick={() => setBet((p) => increaseBet(p))}>+</button>
-        <button className="btn control-btn" onClick={() => setBet((p) => Math.max(1, Math.round(p / 2)))} style={{ background: "linear-gradient(135deg,var(--orange),#ea580c)", border: "none" }}>÷</button>
-        <button className="btn control-btn" onClick={() => setBet((p) => Math.min(Math.round(p * 2), Math.floor(balance)))} style={{ background: "linear-gradient(135deg,var(--blue),#2563eb)", border: "none", fontSize: "var(--fs-body)", fontWeight: 800 }}>2x</button>
+        <button className="btn control-btn" onClick={() => { SFX.click(); setBet((p) => increaseBet(p)); }}>+</button>
+        <button className="btn control-btn" onClick={() => { SFX.click(); setBet((p) => Math.max(1, Math.round(p / 2))); }} style={{ background: "linear-gradient(135deg,var(--orange),#ea580c)", border: "none" }}>÷</button>
+        <button className="btn control-btn" onClick={() => { SFX.click(); setBet((p) => Math.min(Math.round(p * 2), Math.floor(balance))); }} style={{ background: "linear-gradient(135deg,var(--blue),#2563eb)", border: "none", fontSize: "var(--fs-body)", fontWeight: 800 }}>2x</button>
       </div>
 
       {/* Insurance & Bonus toggle */}
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "var(--gap)" }}>
         <button
           className="btn special-btn"
-          onClick={() => setInsurance(!insurance)}
+          onClick={() => { SFX.click(); setInsurance(!insurance); }}
           disabled={disabled}
           style={{
             padding: "var(--gap) 6px", borderRadius: 10, color: "white", textAlign: "center",
@@ -434,6 +695,7 @@ function BetControls({ bet, setBet, totalBet, insurance, setInsurance, bonusBet,
           className="btn special-btn"
           onClick={() => {
             if (bonusAvailable) {
+              SFX.click();
               setBonusBet(!bonusBet);
               if (!bonusBet) setBonusAmount(Math.max(1, Math.floor(bet / 2)));
             }
@@ -461,7 +723,7 @@ function BetControls({ bet, setBet, totalBet, insurance, setInsurance, bonusBet,
         <div style={{ marginTop: "var(--gap)", animation: "slide-up .2s ease" }}>
           <div className="label" style={{ marginBottom: 4, textAlign: "left" }}>BONUS BET (Max ${maxBonus} = half of ${bet})</div>
           <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-            <button className="btn control-btn" onClick={() => setBonusAmount((p) => Math.max(1, p - 1))}>−</button>
+            <button className="btn control-btn" onClick={() => { SFX.click(); setBonusAmount((p) => Math.max(1, p - 1)); }}>−</button>
             <input
               className="mono"
               type="number"
@@ -476,7 +738,7 @@ function BetControls({ bet, setBet, totalBet, insurance, setInsurance, bonusBet,
               onBlur={() => { if (bonusAmount < 1) setBonusAmount(1); }}
               style={{ flex: 1, height: "var(--btn-h)", borderRadius: 8, background: "var(--bg)", border: "1px solid var(--brd)", color: "var(--tx)", textAlign: "center", fontSize: "var(--fs-body)", fontWeight: 800, outline: "none", WebkitAppearance: "none", MozAppearance: "textfield", padding: "0 6px" }}
             />
-            <button className="btn control-btn" onClick={() => setBonusAmount((p) => Math.min(maxBonus, p + 1))}>+</button>
+            <button className="btn control-btn" onClick={() => { SFX.click(); setBonusAmount((p) => Math.min(maxBonus, p + 1)); }}>+</button>
           </div>
         </div>
       )}
@@ -533,6 +795,7 @@ function Game() {
     }
     if (!canRoll) return;
 
+    SFX.roll();
     setRolling(true);
     setPhase("rolling");
     setResult(null);
@@ -575,6 +838,11 @@ function Game() {
       payout = roundCents(payout);
       setResult(outcome);
       setWinAmount(payout);
+
+      // Play result sound
+      if (outcome === "win") SFX.win();
+      else if (outcome === "tie") SFX.tie();
+      else SFX.lose();
 
       if (payout > 0) setBalance((b) => roundCents(b + payout));
 

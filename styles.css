@@ -25,9 +25,9 @@
   /* Responsive tokens (mobile first) */
   --pad: 12px;
   --gap: 8px;
-  --die-size: 44px;
-  --card-h: 90px;
-  --btn-h: 30px;
+  --die-size: 58px;
+  --card-h: 130px;
+  --btn-h: 40px;
   --fs-title: 16px;
   --fs-body: 12px;
   --fs-small: 9px;
@@ -46,7 +46,7 @@
     --gap: 10px;
     --die-size: 56px;
     --card-h: 110px;
-    --btn-h: 36px;
+    --btn-h: 40px;
     --fs-title: 19px;
     --fs-body: 13px;
     --fs-small: 10px;
@@ -66,7 +66,7 @@
     --gap: 10px;
     --die-size: 44px;
     --card-h: 100px;
-    --btn-h: 38px;
+    --btn-h: 40px;
     --fs-title: 20px;
     --fs-body: 13px;
     --fs-small: 10px;
@@ -389,6 +389,42 @@ input[type="number"]:focus {
   animation: pop-in 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
   max-height: 88vh;
   overflow-y: auto;
+}
+
+/* ── Scrollbar ── */
+/* ── Range Slider ── */
+input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 4px;
+  border-radius: 2px;
+  outline: none;
+}
+
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--green);
+  border: 2px solid var(--card);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+  cursor: pointer;
+  transition: transform 0.15s ease;
+}
+
+input[type="range"]::-webkit-slider-thumb:hover {
+  transform: scale(1.2);
+}
+
+input[type="range"]::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--green);
+  border: 2px solid var(--card);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+  cursor: pointer;
 }
 
 /* ── Scrollbar ── */
