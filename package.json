@@ -1,8 +1,8 @@
 {
   "name": "dice-duel",
   "version": "1.0.0",
-  "description": "Dice Duel Game",
-  "main": "dice last.html",
+  "description": "Dice Duel - Fast-Paced Casino Game",
+  "main": "index.html",
   "scripts": {
     "start": "npx serve ."
   },
