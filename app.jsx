@@ -184,18 +184,73 @@ function roundCents(value) {
   return Math.round(value * 100) / 100;
 }
 
-/* ── Dice Face Component ── */
-function DiceFace({ value, color }) {
+/* ── Single face with pips ── */
+function DieFacePanel({ value, pipCls }) {
   const dots = DOT_POSITIONS[value] || [];
-  const dotColor = color === "red" ? "white" : "#12101e";
+  return (
+    <>
+      <div className="die-pips">
+        {dots.map(([x, y], i) => (
+          <div key={i} className={`die-pip ${pipCls}`} style={{ left: `${x}%`, top: `${y}%` }} />
+        ))}
+      </div>
+    </>
+  );
+}
+
+/* ── Static 3D die (shown when idle) ── */
+function DiceFaceStatic({ value, color }) {
+  const isRed = color === "red";
+  const pipCls = isRed ? "die-pip--light" : "die-pip--dark";
+  const c = isRed ? "red" : "white";
 
   return (
-    <div className={`die die--${color === "red" ? "red" : "white"}`}>
-      <svg viewBox="0 0 100 100" style={{ width: "70%", height: "70%" }}>
-        {dots.map(([x, y], i) => (
-          <circle key={i} cx={x} cy={y} r={9} fill={dotColor} opacity={0.9} />
-        ))}
-      </svg>
+    <div className={`die die--${c}`}>
+      <div className={`die-edge die-edge--bottom die-edge--bottom-${c}`} />
+      <div className={`die-edge die-edge--right die-edge--right-${c}`} />
+      <div className="die-main">
+        <div className="die-shine" />
+        <div className="die-pips">
+          {(DOT_POSITIONS[value] || []).map(([x, y], i) => (
+            <div key={i} className={`die-pip ${pipCls}`} style={{ left: `${x}%`, top: `${y}%` }} />
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ── Rolling 3D cube (shown during roll) ── */
+function DiceFaceRolling({ value, color }) {
+  const isRed = color === "red";
+  const cls = isRed ? "red" : "white";
+  const pipCls = isRed ? "die-pip--light" : "die-pip--dark";
+
+  // Generate all 6 face values
+  const faces = [1, 2, 3, 4, 5, 6];
+
+  return (
+    <div className="die-scene">
+      <div className={`die-cube die-cube--${cls} die-cube--rolling`}>
+        <div className={`die-cube-face die-cube-front die-cube-face--${cls}`}>
+          <DieFacePanel value={faces[0]} pipCls={pipCls} />
+        </div>
+        <div className={`die-cube-face die-cube-back die-cube-face--${cls}`}>
+          <DieFacePanel value={faces[1]} pipCls={pipCls} />
+        </div>
+        <div className={`die-cube-face die-cube-right die-cube-face--${cls}`}>
+          <DieFacePanel value={faces[2]} pipCls={pipCls} />
+        </div>
+        <div className={`die-cube-face die-cube-left die-cube-face--${cls}`}>
+          <DieFacePanel value={faces[3]} pipCls={pipCls} />
+        </div>
+        <div className={`die-cube-face die-cube-top die-cube-face--${cls}`}>
+          <DieFacePanel value={faces[4]} pipCls={pipCls} />
+        </div>
+        <div className={`die-cube-face die-cube-bottom die-cube-face--${cls}`}>
+          <DieFacePanel value={faces[5]} pipCls={pipCls} />
+        </div>
+      </div>
     </div>
   );
 }
@@ -203,15 +258,19 @@ function DiceFace({ value, color }) {
 /* ── Animated Die Component ── */
 function AnimatedDie({ finalValue, color, delay = 0, rolling }) {
   const [displayValue, setDisplayValue] = useState(finalValue || 1);
+  const [showCube, setShowCube] = useState(false);
 
   useEffect(() => {
     if (!rolling) {
       if (finalValue) setDisplayValue(finalValue);
+      setShowCube(false);
       return;
     }
+    setShowCube(true);
     const interval = setInterval(() => setDisplayValue(rollDie()), 50);
     const timeout = setTimeout(() => {
       clearInterval(interval);
+      setShowCube(false);
       if (finalValue) setDisplayValue(finalValue);
     }, 1100 + delay);
     return () => {
@@ -220,12 +279,13 @@ function AnimatedDie({ finalValue, color, delay = 0, rolling }) {
     };
   }, [rolling, finalValue, delay]);
 
+  if (showCube) {
+    return <DiceFaceRolling value={displayValue} color={color} />;
+  }
+
   return (
-    <div
-      className={rolling ? "rolling" : ""}
-      style={{ transition: rolling ? "none" : "transform .3s cubic-bezier(.34,1.56,.64,1)" }}
-    >
-      <DiceFace value={displayValue} color={color} />
+    <div style={{ animation: rolling ? "none" : "pop-in .3s cubic-bezier(.34,1.56,.64,1)" }}>
+      <DiceFaceStatic value={displayValue} color={color} />
     </div>
   );
 }
@@ -290,7 +350,7 @@ function GameInfoModal({ onClose }) {
         <button
           className="btn"
           onClick={onClose}
-          style={{ width: "100%", padding: "var(--gap)", borderRadius: "var(--radius)", fontSize: "var(--fs-body)", fontWeight: 800, color: "white", background: "linear-gradient(135deg,#7C3AED,var(--purple))", boxShadow: "0 4px 16px rgba(124,58,237,.3)", marginTop: "var(--pad)" }}
+          style={{ width: "100%", height: 48, borderRadius: "var(--radius)", fontSize: "var(--fs-body)", fontWeight: 800, color: "white", background: "linear-gradient(135deg,#7C3AED,var(--purple))", boxShadow: "0 4px 16px rgba(124,58,237,.3)", marginTop: "var(--pad)" }}
         >
           Got It
         </button>
@@ -441,7 +501,7 @@ function Header({ balance, onShowInfo }) {
           className="btn"
           onClick={onShowInfo}
           aria-label="How to play"
-          style={{ width: 22, height: 22, borderRadius: "50%", border: "1.5px solid var(--brd2)", background: "transparent", color: "var(--tx3)", fontSize: "var(--fs-small)", fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center" }}
+          style={{ width: 24, height: 24, borderRadius: "50%", border: "none", background: "linear-gradient(135deg, var(--purple), var(--purple-d))", color: "#fff", fontSize: "var(--fs-small)", fontWeight: 900, display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 2px 8px rgba(168,85,247,0.3)" }}
         >
           ?
         </button>
@@ -758,8 +818,8 @@ function Game() {
   const [bonusAmount, setBonusAmount] = useState(5);
   const [rolling, setRolling] = useState(false);
   const [phase, setPhase] = useState("idle");
-  const [dealerDice, setDealerDice] = useState([null, null]);
-  const [playerDice, setPlayerDice] = useState([null]);
+  const [dealerDice, setDealerDice] = useState([1, 1]);
+  const [playerDice, setPlayerDice] = useState([1]);
   const [result, setResult] = useState(null);
   const [winAmount, setWinAmount] = useState(0);
   const [showAlert, setShowAlert] = useState(false);
@@ -783,10 +843,13 @@ function Game() {
     if (diceCount === 1 && bonusBet) setBonusBet(false);
   }, [diceCount]);
 
-  // Reset player dice placeholders when dice count changes
+  // Reset all dice to 1 when dice count changes
   useEffect(() => {
-    if (phase === "idle") setPlayerDice(Array(diceCount).fill(null));
-  }, [diceCount, phase]);
+    if (phase === "idle") {
+      setPlayerDice(Array(diceCount).fill(1));
+      setDealerDice([1, 1]);
+    }
+  }, [diceCount]);
 
   const handleRoll = useCallback(() => {
     if (balance < totalBet || balance <= 0) {
@@ -846,12 +909,10 @@ function Game() {
 
       if (payout > 0) setBalance((b) => roundCents(b + payout));
 
-      // Reset after showing result
+      // Reset after showing result (keep dice visible)
       setTimeout(() => {
         setPhase("idle");
         setResult(null);
-        setDealerDice([null, null]);
-        setPlayerDice(Array(diceCount).fill(null));
         setBalance((b) => {
           if (b <= 0) setTimeout(() => setShowAlert(true), 200);
           return b;
@@ -923,7 +984,6 @@ function Game() {
           diceCount={diceCount}
           onSelect={(count) => {
             setDiceCount(count);
-            if (phase === "idle") setPlayerDice(Array(count).fill(null));
           }}
           disabled={phase !== "idle"}
         />

@@ -151,8 +151,9 @@ body {
 
 /* ── Animations ── */
 @keyframes dice-shake {
-  0%   { transform: rotate(-10deg) scale(1.08); }
-  100% { transform: rotate(10deg) scale(0.92); }
+  0%   { transform: rotate(-8deg) scale(1.06); }
+  50%  { transform: rotate(8deg) scale(0.94); }
+  100% { transform: rotate(-8deg) scale(1.06); }
 }
 
 @keyframes pop-in {
@@ -330,24 +331,133 @@ input[type="number"]:focus {
   box-shadow: 0 0 0 2px rgba(124, 58, 237, 0.2);
 }
 
-/* ── Dice ── */
+/* ── 3D Dice ── */
 .die {
-  border-radius: 18%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
   width: var(--die-size);
   height: var(--die-size);
+  position: relative;
+  flex-shrink: 0;
 }
 
-.die--red {
-  background: linear-gradient(145deg, #ff4757, #d63031);
-  box-shadow: 2px 4px 12px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.18), 0 0 14px rgba(255, 71, 87, 0.12);
+/* Visible edge layers (fake 3D depth) */
+.die-edge {
+  position: absolute;
+  border-radius: 18%;
 }
 
-.die--white {
-  background: linear-gradient(145deg, #f5f5f5, #d8d8d8);
-  box-shadow: 2px 4px 12px rgba(0, 0, 0, 0.5), inset 0 2px 0 rgba(255, 255, 255, 0.7);
+.die-edge--bottom {
+  left: 0;
+  right: 0;
+  top: 6px;
+  bottom: -6px;
+  z-index: 0;
+}
+.die-edge--bottom-red {
+  background: linear-gradient(180deg, #8b1a1a 0%, #5c1010 100%);
+}
+.die-edge--bottom-white {
+  background: linear-gradient(180deg, #999 0%, #777 100%);
+}
+
+.die-edge--right {
+  top: 3px;
+  left: 4px;
+  right: -4px;
+  bottom: -3px;
+  z-index: 1;
+}
+.die-edge--right-red {
+  background: linear-gradient(135deg, #a02020 0%, #701515 100%);
+}
+.die-edge--right-white {
+  background: linear-gradient(135deg, #b0b0b0 0%, #909090 100%);
+}
+
+/* Main front face */
+.die-main {
+  position: absolute;
+  inset: 0;
+  border-radius: 18%;
+  z-index: 2;
+  overflow: hidden;
+}
+
+.die--red .die-main {
+  background: linear-gradient(145deg, #ff6b6b 0%, #ef4444 25%, #dc2626 55%, #b91c1c 100%);
+  box-shadow:
+    inset 0 2px 4px rgba(255,255,255,0.25),
+    inset 0 -3px 6px rgba(0,0,0,0.2),
+    inset 3px 0 6px rgba(255,255,255,0.05),
+    inset -3px 0 6px rgba(0,0,0,0.1);
+}
+
+.die--white .die-main {
+  background: linear-gradient(145deg, #ffffff 0%, #f5f5f5 25%, #e8e8e8 55%, #d4d4d4 100%);
+  box-shadow:
+    inset 0 2px 4px rgba(255,255,255,0.9),
+    inset 0 -3px 6px rgba(0,0,0,0.08),
+    inset 3px 0 6px rgba(255,255,255,0.5),
+    inset -3px 0 6px rgba(0,0,0,0.04);
+}
+
+/* Drop shadow */
+.die::after {
+  content: "";
+  position: absolute;
+  bottom: -10px;
+  left: 8%;
+  width: 84%;
+  height: 10px;
+  background: radial-gradient(ellipse, rgba(0,0,0,0.35) 0%, transparent 70%);
+  z-index: -1;
+  pointer-events: none;
+}
+
+/* Glossy reflection */
+.die-shine {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 48%;
+  border-radius: 18% 18% 60% 60%;
+  background: linear-gradient(180deg, rgba(255,255,255,0.4) 0%, rgba(255,255,255,0.1) 40%, transparent 100%);
+  pointer-events: none;
+  z-index: 3;
+}
+
+/* Pip container */
+.die-pips {
+  position: absolute;
+  inset: 14%;
+  z-index: 2;
+}
+
+/* Individual pip (recessed) */
+.die-pip {
+  position: absolute;
+  width: 22%;
+  height: 22%;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.die-pip--light {
+  background: radial-gradient(circle at 35% 35%, #ffffff, #eee 40%, #ddd 80%, #ccc);
+  box-shadow:
+    inset 0 2px 3px rgba(255,255,255,0.9),
+    inset 0 -1px 2px rgba(0,0,0,0.2),
+    0 2px 4px rgba(0,0,0,0.4),
+    0 0 1px rgba(0,0,0,0.2);
+}
+
+.die-pip--dark {
+  background: radial-gradient(circle at 35% 35%, #444, #222 40%, #111 80%, #000);
+  box-shadow:
+    inset 0 1px 2px rgba(255,255,255,0.12),
+    inset 0 -1px 2px rgba(0,0,0,0.6),
+    0 2px 4px rgba(0,0,0,0.5),
+    0 0 1px rgba(0,0,0,0.3);
 }
 
 .die-placeholder {
@@ -358,8 +468,62 @@ input[type="number"]:focus {
   opacity: 0.25;
 }
 
-.rolling {
-  animation: dice-shake 0.1s infinite alternate;
+/* ── Rolling 3D Cube ── */
+.die-scene {
+  width: var(--die-size);
+  height: var(--die-size);
+  perspective: 250px;
+  perspective-origin: 50% 50%;
+  flex-shrink: 0;
+}
+
+.die-cube {
+  width: 100%;
+  height: 100%;
+  position: relative;
+  transform-style: preserve-3d;
+  transform: translateZ(calc(var(--die-size) / -2));
+}
+
+.die-cube-face {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  border-radius: 18%;
+  overflow: hidden;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+
+/* Pips inside cube faces need relative positioning */
+.die-cube-face .die-pips {
+  position: absolute;
+  inset: 14%;
+}
+
+.die-cube-face--red {
+  background: linear-gradient(145deg, #ff6b6b 0%, #ef4444 25%, #dc2626 55%, #b91c1c 100%);
+  border: 1px solid rgba(0,0,0,0.15);
+}
+.die-cube-face--white {
+  background: linear-gradient(145deg, #fff 0%, #f5f5f5 25%, #e8e8e8 55%, #d4d4d4 100%);
+  border: 1px solid rgba(0,0,0,0.08);
+}
+
+.die-cube-front  { transform: rotateY(0deg)    translateZ(calc(var(--die-size) / 2)); }
+.die-cube-back   { transform: rotateY(180deg)  translateZ(calc(var(--die-size) / 2)); }
+.die-cube-right  { transform: rotateY(90deg)   translateZ(calc(var(--die-size) / 2)); }
+.die-cube-left   { transform: rotateY(-90deg)  translateZ(calc(var(--die-size) / 2)); }
+.die-cube-top    { transform: rotateX(90deg)   translateZ(calc(var(--die-size) / 2)); }
+.die-cube-bottom { transform: rotateX(-90deg)  translateZ(calc(var(--die-size) / 2)); }
+
+.die-cube--rolling {
+  animation: dice-tumble 0.8s infinite linear;
+}
+
+@keyframes dice-tumble {
+  0%   { transform: translateZ(calc(var(--die-size) / -2)) rotateX(0deg)    rotateY(0deg); }
+  100% { transform: translateZ(calc(var(--die-size) / -2)) rotateX(360deg)  rotateY(540deg); }
 }
 
 /* ── Overlay / Modal ── */
