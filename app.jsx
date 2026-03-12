@@ -697,7 +697,7 @@ function BetControls({ bet, setBet, totalBet, insurance, setInsurance, bonusBet,
             if (bonusAvailable) {
               SFX.click();
               setBonusBet(!bonusBet);
-              if (!bonusBet) setBonusAmount(Math.max(1, Math.floor(bet / 2)));
+              if (!bonusBet) setBonusAmount(roundCents(bet / 2));
             }
           }}
           disabled={disabled || !bonusAvailable}
@@ -721,24 +721,25 @@ function BetControls({ bet, setBet, totalBet, insurance, setInsurance, bonusBet,
       {/* Bonus amount input */}
       {bonusBet && bonusAvailable && (
         <div style={{ marginTop: "var(--gap)", animation: "slide-up .2s ease" }}>
-          <div className="label" style={{ marginBottom: 4, textAlign: "left" }}>BONUS BET (Max ${maxBonus} = half of ${bet})</div>
+          <div className="label" style={{ marginBottom: 4, textAlign: "left" }}>BONUS BET (Max ${maxBonus.toFixed(2)} = half of ${bet.toFixed(2)})</div>
           <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-            <button className="btn control-btn" onClick={() => { SFX.click(); setBonusAmount((p) => Math.max(1, p - 1)); }}>−</button>
+            <button className="btn control-btn" onClick={() => { SFX.click(); setBonusAmount((p) => Math.max(0.01, roundCents(p - 0.50))); }}>−</button>
             <input
               className="mono"
               type="number"
-              min="1"
+              min="0.10"
               max={maxBonus}
+              step="0.10"
               value={effectiveBonusAmount}
               onChange={(e) => {
-                const v = parseInt(e.target.value);
+                const v = parseFloat(e.target.value);
                 if (!isNaN(v) && v >= 0) setBonusAmount(Math.min(v, maxBonus));
                 if (e.target.value === "") setBonusAmount(0);
               }}
-              onBlur={() => { if (bonusAmount < 1) setBonusAmount(1); }}
+              onBlur={() => { if (bonusAmount < 0.01) setBonusAmount(0.01); }}
               style={{ flex: 1, height: "var(--btn-h)", borderRadius: 8, background: "var(--bg)", border: "1px solid var(--brd)", color: "var(--tx)", textAlign: "center", fontSize: "var(--fs-body)", fontWeight: 800, outline: "none", WebkitAppearance: "none", MozAppearance: "textfield", padding: "0 6px" }}
             />
-            <button className="btn control-btn" onClick={() => { SFX.click(); setBonusAmount((p) => Math.min(maxBonus, p + 1)); }}>+</button>
+            <button className="btn control-btn" onClick={() => { SFX.click(); setBonusAmount((p) => Math.min(maxBonus, roundCents(p + 0.50))); }}>+</button>
           </div>
         </div>
       )}
@@ -766,7 +767,7 @@ function Game() {
   const [showAlert, setShowAlert] = useState(false);
   const [showInfo, setShowInfo] = useState(false);
 
-  const maxBonus = Math.max(1, Math.floor(bet / 2));
+  const maxBonus = roundCents(bet / 2);
   const effectiveBonusAmount = Math.min(bonusAmount, maxBonus);
   const bonusAvailable = diceCount >= 2;
 
@@ -833,7 +834,7 @@ function Game() {
       }
 
       // Bonus bet (all dice same number, 2+ dice required)
-      const currentMaxBonus = Math.max(1, Math.floor(bet / 2));
+      const currentMaxBonus = roundCents(bet / 2);
       const currentBonusAmount = Math.min(bonusAmount, currentMaxBonus);
       if (bonusBet && diceCount >= 2 && newPlayerDice.length >= 2 && newPlayerDice.every((d) => d === newPlayerDice[0])) {
         payout += currentBonusAmount * BONUS_MULTIPLIERS[diceCount];
