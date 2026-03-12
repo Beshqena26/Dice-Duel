@@ -1,4 +1,4 @@
-const { useState, useEffect, useCallback, useMemo, useRef } = React;
+const { useState, useEffect, useCallback, useMemo } = React;
 
 /* ── Constants ── */
 const MULTIPLIERS = { 1: 10.48, 2: 2.19, 3: 1.25 };
@@ -6,6 +6,8 @@ const BONUS_MULTIPLIERS = { 2: 5.8, 3: 34.9 };
 const INSURANCE_RATE = 0.05;
 const INSURANCE_RETURN = 0.25;
 const INITIAL_BALANCE = 9137.76;
+const MIN_BET = 0.10;
+const MAX_BET = 100;
 
 const DOT_POSITIONS = {
   1: [[50, 50]],
@@ -307,44 +309,61 @@ function GameInfoModal({ onClose }) {
         </div>
 
         {/* How it works */}
-        <div style={{ padding: "var(--gap) var(--pad)", marginBottom: "var(--gap)", borderRadius: 10, background: "var(--elev)", border: "1px solid var(--brd)", fontSize: "var(--fs-body)", color: "var(--tx2)", lineHeight: 1.7 }}>
-          Roll your dice against the dealer's <strong style={{ color: "var(--tx)" }}>2 dice</strong>. If your total is higher, <strong style={{ color: "var(--green)" }}>you win</strong>.
+        <div style={{ padding: "var(--gap) var(--pad)", marginBottom: "var(--gap)", borderRadius: 10, background: "var(--elev)", border: "1px solid var(--brd)", fontSize: "var(--fs-body)", color: "var(--tx2)", lineHeight: 1.5 }}>
+          Roll your dice against the dealer's <strong style={{ color: "var(--tx)" }}>2 dice</strong>. Higher total <strong style={{ color: "var(--green)" }}>wins</strong>. Tie = <strong style={{ color: "var(--red)" }}>loss</strong> (use <strong style={{ color: "var(--amber)" }}>Insurance</strong> 5% to get 25% back).
         </div>
 
-        {/* Multipliers table */}
-        <div style={{ fontSize: "var(--fs-body)", fontWeight: 800, color: "var(--tx)", marginBottom: "var(--gap)" }}>Payouts</div>
+        {/* Combined table */}
         <div style={{ borderRadius: 10, overflow: "hidden", border: "1px solid var(--brd)", marginBottom: "var(--gap)" }}>
-          {/* Table header */}
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 60px 60px", padding: "6px var(--pad)", background: "var(--elev)", borderBottom: "1px solid var(--brd)" }}>
-            <span style={{ fontSize: "var(--fs-small)", fontWeight: 700, color: "var(--tx3)", letterSpacing: 1 }}>BET</span>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 60px", padding: "5px var(--pad)", background: "var(--elev)", borderBottom: "1px solid var(--brd)" }}>
+            <span style={{ fontSize: "var(--fs-small)", fontWeight: 700, color: "var(--tx3)", letterSpacing: 1 }}>PAYOUTS</span>
             <span style={{ fontSize: "var(--fs-small)", fontWeight: 700, color: "var(--tx3)", letterSpacing: 1, textAlign: "center" }}>MULT</span>
-            <span style={{ fontSize: "var(--fs-small)", fontWeight: 700, color: "var(--tx3)", letterSpacing: 1, textAlign: "right" }}>RTP</span>
           </div>
           {[
-            { label: "1 Die", mult: "10.48x", rtp: "97.0%", color: "var(--red)" },
-            { label: "2 Dice", mult: "2.19x", rtp: "97.2%", color: "var(--amber)" },
-            { label: "3 Dice", mult: "1.25x", rtp: "97.3%", color: "var(--green)" },
-            { label: "Bonus 2D", mult: "5.8x", rtp: "96.7%", color: "var(--purple)" },
-            { label: "Bonus 3D", mult: "34.9x", rtp: "96.9%", color: "var(--amber)" },
+            { label: "1 Die", mult: "10.48x", color: "var(--red)" },
+            { label: "2 Dice", mult: "2.19x", color: "var(--amber)" },
+            { label: "3 Dice", mult: "1.25x", color: "var(--green)" },
           ].map((row, i) => (
-            <div key={i} style={{ display: "grid", gridTemplateColumns: "1fr 60px 60px", padding: "7px var(--pad)", background: i % 2 === 0 ? "transparent" : "rgba(255,255,255,.015)", borderBottom: i < 4 ? "1px solid rgba(255,255,255,.03)" : "none" }}>
+            <div key={i} style={{ display: "grid", gridTemplateColumns: "1fr 60px", padding: "5px var(--pad)", background: i % 2 === 0 ? "transparent" : "rgba(255,255,255,.015)", borderBottom: "1px solid rgba(255,255,255,.03)" }}>
               <span style={{ fontSize: "var(--fs-body)", fontWeight: 700, color: row.color }}>{row.label}</span>
               <span className="mono" style={{ fontSize: "var(--fs-body)", fontWeight: 800, color: "var(--tx)", textAlign: "center" }}>{row.mult}</span>
-              <span className="mono" style={{ fontSize: "var(--fs-small)", fontWeight: 600, color: "var(--green)", textAlign: "right" }}>{row.rtp}</span>
+            </div>
+          ))}
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 60px", padding: "5px var(--pad)", background: "var(--elev)", borderBottom: "1px solid var(--brd)", borderTop: "1px solid var(--brd)" }}>
+            <span style={{ fontSize: "var(--fs-small)", fontWeight: 700, color: "var(--purple)", letterSpacing: 1 }}>BONUS</span>
+            <span style={{ fontSize: "var(--fs-small)", fontWeight: 700, color: "var(--tx3)", letterSpacing: 1, textAlign: "center" }}>MULT</span>
+          </div>
+          {[
+            { label: "Bonus 2D", mult: "5.8x", color: "var(--purple)" },
+            { label: "Bonus 3D", mult: "34.9x", color: "var(--amber)" },
+          ].map((row, i) => (
+            <div key={"b" + i} style={{ display: "grid", gridTemplateColumns: "1fr 60px", padding: "5px var(--pad)", background: i % 2 === 0 ? "transparent" : "rgba(255,255,255,.015)" }}>
+              <span style={{ fontSize: "var(--fs-body)", fontWeight: 700, color: row.color }}>{row.label}</span>
+              <span className="mono" style={{ fontSize: "var(--fs-body)", fontWeight: 800, color: "var(--tx)", textAlign: "center" }}>{row.mult}</span>
             </div>
           ))}
         </div>
-
-        {/* Tie */}
-        <div style={{ fontSize: "var(--fs-body)", fontWeight: 800, color: "var(--amber)", marginBottom: "var(--gap)" }}>Tie</div>
-        <div style={{ padding: "var(--gap) var(--pad)", marginBottom: "var(--gap)", borderRadius: 10, background: "var(--elev)", border: "1px solid var(--brd)", fontSize: "var(--fs-body)", color: "var(--tx2)", lineHeight: 1.6 }}>
-          If your total equals the dealer's, <strong style={{ color: "var(--red)" }}>you lose your bet</strong>. Use <strong style={{ color: "var(--amber)" }}>Insurance</strong> (5% of bet) to get <strong style={{ color: "var(--green)" }}>25% back</strong> on ties.
+        <div style={{ padding: "var(--gap) var(--pad)", marginBottom: "var(--gap)", borderRadius: 10, background: "var(--elev)", border: "1px solid var(--brd)", fontSize: "var(--fs-body)", color: "var(--tx2)", lineHeight: 1.5 }}>
+          <strong style={{ color: "var(--purple)" }}>Bonus:</strong> 2+ dice, all same number wins. Max bonus = half your bet.
         </div>
 
-        {/* Bonus */}
-        <div style={{ fontSize: "var(--fs-body)", fontWeight: 800, color: "var(--purple)", marginBottom: "var(--gap)" }}>Bonus Bet</div>
-        <div style={{ padding: "var(--gap) var(--pad)", borderRadius: 10, background: "var(--elev)", border: "1px solid var(--brd)", fontSize: "var(--fs-body)", color: "var(--tx2)", lineHeight: 1.6 }}>
-          Available with 2+ dice. All your dice must land on the <strong style={{ color: "var(--tx)" }}>same number</strong> to win. Max bonus is half your bet.
+        {/* Limits */}
+        <div style={{ borderRadius: 10, overflow: "hidden", border: "1px solid var(--brd)", marginBottom: "var(--gap)" }}>
+          <div style={{ padding: "5px var(--pad)", background: "var(--elev)", borderBottom: "1px solid var(--brd)" }}>
+            <span style={{ fontSize: "var(--fs-small)", fontWeight: 700, color: "var(--tx3)", letterSpacing: 1 }}>LIMITS</span>
+          </div>
+          {[
+            { label: "Min Bet", value: "$" + MIN_BET.toFixed(2), color: "var(--tx2)" },
+            { label: "Max Bet", value: "$" + MAX_BET.toFixed(2), color: "var(--tx2)" },
+            { label: "Max Win (1 Die)", value: "$" + roundCents(MAX_BET * MULTIPLIERS[1]).toFixed(2), color: "var(--green)" },
+            { label: "Max Win (2D + Bonus)", value: "$" + roundCents(MAX_BET * MULTIPLIERS[2] + (MAX_BET / 2) * BONUS_MULTIPLIERS[2]).toFixed(2), color: "var(--green)" },
+            { label: "Max Win (3D + Bonus)", value: "$" + roundCents(MAX_BET * MULTIPLIERS[3] + (MAX_BET / 2) * BONUS_MULTIPLIERS[3]).toFixed(2), color: "var(--green)" },
+          ].map((row, i) => (
+            <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "5px var(--pad)", background: i % 2 === 0 ? "transparent" : "rgba(255,255,255,.015)", borderBottom: i < 4 ? "1px solid rgba(255,255,255,.03)" : "none" }}>
+              <span style={{ fontSize: "var(--fs-body)", fontWeight: 600, color: "var(--tx3)" }}>{row.label}</span>
+              <span className="mono" style={{ fontSize: "var(--fs-body)", fontWeight: 800, color: row.color }}>{row.value}</span>
+            </div>
+          ))}
         </div>
 
         <button
@@ -386,25 +405,6 @@ function InsufficientBalanceModal({ balance, totalBet, onClose }) {
 /* ── Sound Control Component ── */
 function SoundControl() {
   const [muted, setMuted] = useState(SFX.isMuted());
-  const [volume, setVolume] = useState(SFX.getVolume());
-  const [open, setOpen] = useState(false);
-  const wrapperRef = useRef(null);
-
-  // Close dropdown when clicking outside
-  useEffect(() => {
-    if (!open) return;
-    const handleClickOutside = (e) => {
-      if (wrapperRef.current && !wrapperRef.current.contains(e.target)) {
-        setOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", handleClickOutside);
-    document.addEventListener("touchstart", handleClickOutside);
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-      document.removeEventListener("touchstart", handleClickOutside);
-    };
-  }, [open]);
 
   const toggleMute = () => {
     const next = !muted;
@@ -413,78 +413,22 @@ function SoundControl() {
     if (!next) SFX.click();
   };
 
-  const handleVolume = (e) => {
-    const v = parseFloat(e.target.value);
-    setVolume(v);
-    SFX.setVolume(v);
-    if (muted) { setMuted(false); SFX.setMuted(false); }
-  };
-
-  const icon = muted ? "🔇" : volume > 0.5 ? "🔊" : volume > 0 ? "🔉" : "🔈";
-
   return (
-    <div ref={wrapperRef} style={{ position: "relative", display: "flex", alignItems: "center" }}>
-      <button
-        className="btn"
-        onClick={() => setOpen(!open)}
-        style={{
-          width: 32, height: 32, borderRadius: 8, background: "var(--elev)",
-          border: "1px solid var(--brd)", color: "var(--tx2)", fontSize: 16,
-          display: "flex", alignItems: "center", justifyContent: "center",
-          opacity: muted ? 0.5 : 1,
-        }}
-        aria-label="Sound settings"
-      >
-        {icon}
-      </button>
-      {open && (
-        <div
-          style={{
-            position: "absolute", top: "110%", right: 0, zIndex: 50,
-            background: "var(--card)", border: "1px solid var(--brd2)",
-            borderRadius: 12, padding: "12px 14px", minWidth: 180,
-            boxShadow: "0 12px 40px rgba(0,0,0,.5)",
-            animation: "slide-up .15s ease",
-          }}
-        >
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
-            <span style={{ fontSize: "var(--fs-small)", fontWeight: 700, color: "var(--tx3)", letterSpacing: 1, textTransform: "uppercase" }}>Sound</span>
-            <button
-              className="btn"
-              onClick={toggleMute}
-              style={{
-                width: 28, height: 28, borderRadius: 6, fontSize: 14,
-                background: muted ? "rgba(255,71,87,.15)" : "rgba(46,213,115,.12)",
-                border: "1px solid " + (muted ? "rgba(255,71,87,.25)" : "rgba(46,213,115,.2)"),
-                color: muted ? "var(--red)" : "var(--green)",
-                display: "flex", alignItems: "center", justifyContent: "center",
-              }}
-            >
-              {muted ? "🔇" : "🔊"}
-            </button>
-          </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <span style={{ fontSize: 12, color: "var(--tx3)" }}>🔈</span>
-            <input
-              type="range"
-              min="0" max="1" step="0.05"
-              value={muted ? 0 : volume}
-              onChange={handleVolume}
-              style={{
-                flex: 1, height: 4, appearance: "none", WebkitAppearance: "none",
-                background: `linear-gradient(to right, var(--green) ${(muted ? 0 : volume) * 100}%, var(--elev) ${(muted ? 0 : volume) * 100}%)`,
-                borderRadius: 2, outline: "none", cursor: "pointer",
-                accentColor: "var(--green)",
-              }}
-            />
-            <span style={{ fontSize: 12, color: "var(--tx3)" }}>🔊</span>
-          </div>
-          <div className="mono" style={{ textAlign: "center", fontSize: "var(--fs-small)", color: "var(--tx3)", marginTop: 6 }}>
-            {muted ? "Muted" : Math.round(volume * 100) + "%"}
-          </div>
-        </div>
-      )}
-    </div>
+    <button
+      className="btn"
+      onClick={toggleMute}
+      style={{
+        width: 32, height: 32, borderRadius: 8,
+        background: muted ? "rgba(255,71,87,.15)" : "var(--elev)",
+        border: "1px solid " + (muted ? "rgba(255,71,87,.25)" : "var(--brd)"),
+        color: "var(--tx2)", fontSize: 16,
+        display: "flex", alignItems: "center", justifyContent: "center",
+        opacity: muted ? 0.5 : 1,
+      }}
+      aria-label={muted ? "Unmute" : "Mute"}
+    >
+      {muted ? "🔇" : "🔊"}
+    </button>
   );
 }
 
@@ -679,27 +623,27 @@ function DiceCountSelector({ diceCount, onSelect, disabled }) {
 /* ── Bet Controls Component ── */
 function BetControls({ bet, setBet, totalBet, insurance, setInsurance, bonusBet, setBonusBet, bonusAmount, setBonusAmount, bonusAvailable, maxBonus, effectiveBonusAmount, disabled, balance }) {
   function decreaseBet(prev) {
-    if (prev <= 1) return 1;
+    if (prev <= 0.5) return MIN_BET;
+    if (prev <= 1) return Math.max(MIN_BET, prev - 0.10);
     if (prev <= 5) return prev - 1;
     if (prev <= 20) return prev - 5;
     if (prev <= 100) return prev - 10;
-    if (prev <= 500) return prev - 50;
     return prev - 100;
   }
 
   function increaseBet(prev) {
-    const max = Math.floor(balance);
+    const max = Math.min(MAX_BET, balance);
+    if (prev < 1) return Math.min(prev + 0.10, max);
     if (prev < 5) return Math.min(prev + 1, max);
     if (prev < 20) return Math.min(prev + 5, max);
     if (prev < 100) return Math.min(prev + 10, max);
-    if (prev < 500) return Math.min(prev + 50, max);
     return Math.min(prev + 100, max);
   }
 
   return (
     <section className="card" style={{ padding: "var(--pad)", marginBottom: "var(--gap)" }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
-        <span className="label" style={{ textAlign: "left" }}>BET AMOUNT</span>
+        <span className="label" style={{ textAlign: "left" }}>BET AMOUNT <span style={{ fontWeight: 600, color: "var(--tx3)", letterSpacing: 0 }}>(${MIN_BET.toFixed(2)} – ${MAX_BET})</span></span>
         <span className="mono" style={{ fontSize: "var(--fs-small)", color: "var(--tx3)", fontWeight: 600 }}>
           Total: <strong style={{ color: "var(--tx)" }}>${totalBet.toFixed(2)}</strong>
         </span>
@@ -711,20 +655,21 @@ function BetControls({ bet, setBet, totalBet, insurance, setInsurance, bonusBet,
         <input
           className="mono"
           type="number"
-          min="1"
-          max={Math.floor(balance)}
+          min={MIN_BET}
+          max={Math.min(MAX_BET, balance)}
+          step="0.10"
           value={bet}
           onChange={(e) => {
-            const v = parseInt(e.target.value);
-            if (!isNaN(v) && v >= 0) setBet(Math.min(v, Math.floor(balance)));
+            const v = parseFloat(e.target.value);
+            if (!isNaN(v) && v >= 0) setBet(Math.min(v, MAX_BET, balance));
             if (e.target.value === "") setBet(0);
           }}
-          onBlur={() => { if (bet < 1) setBet(1); }}
+          onBlur={() => { if (bet < MIN_BET) setBet(MIN_BET); }}
           style={{ flex: 1, height: "var(--btn-h)", borderRadius: 8, background: "var(--bg)", border: "1px solid var(--brd)", color: "var(--tx)", textAlign: "center", fontSize: "var(--fs-body)", fontWeight: 800, outline: "none", WebkitAppearance: "none", MozAppearance: "textfield", padding: "0 8px" }}
         />
         <button className="btn control-btn" onClick={() => { SFX.click(); setBet((p) => increaseBet(p)); }}>+</button>
-        <button className="btn control-btn" onClick={() => { SFX.click(); setBet((p) => Math.max(1, Math.round(p / 2))); }} style={{ background: "linear-gradient(135deg,var(--orange),#ea580c)", border: "none" }}>÷</button>
-        <button className="btn control-btn" onClick={() => { SFX.click(); setBet((p) => Math.min(Math.round(p * 2), Math.floor(balance))); }} style={{ background: "linear-gradient(135deg,var(--blue),#2563eb)", border: "none", fontSize: "var(--fs-body)", fontWeight: 800 }}>2x</button>
+        <button className="btn control-btn" onClick={() => { SFX.click(); setBet((p) => Math.max(MIN_BET, roundCents(p / 2))); }} style={{ background: "linear-gradient(135deg,var(--orange),#ea580c)", border: "none" }}>÷</button>
+        <button className="btn control-btn" onClick={() => { SFX.click(); setBet((p) => Math.min(roundCents(p * 2), MAX_BET, balance)); }} style={{ background: "linear-gradient(135deg,var(--blue),#2563eb)", border: "none", fontSize: "var(--fs-body)", fontWeight: 800 }}>2x</button>
       </div>
 
       {/* Insurance & Bonus toggle */}
@@ -797,6 +742,7 @@ function BetControls({ bet, setBet, totalBet, insurance, setInsurance, bonusBet,
           </div>
         </div>
       )}
+
     </section>
   );
 }
